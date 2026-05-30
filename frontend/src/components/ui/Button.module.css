@@ -1,0 +1,142 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+}
+
+.btn:active:not(.disabled) {
+  transform: scale(0.97);
+}
+
+/* ── Sizes ── */
+.sm {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-xs);
+}
+
+.md {
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+}
+
+.lg {
+  padding: 14px 28px;
+  font-size: 1rem;
+  border-radius: var(--radius);
+}
+
+/* ── Variants ── */
+.primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-primary);
+}
+.primary:hover:not(.disabled) {
+  background: var(--primary-hover);
+  box-shadow: 0 6px 20px rgba(21, 101, 192, 0.4);
+}
+
+.success {
+  background: var(--income);
+  color: white;
+  box-shadow: var(--shadow-income);
+}
+.success:hover:not(.disabled) {
+  background: var(--income-dark);
+}
+
+.danger {
+  background: var(--expense);
+  color: white;
+  box-shadow: var(--shadow-expense);
+}
+.danger:hover:not(.disabled) {
+  background: var(--expense-dark);
+}
+
+.line {
+  background: var(--line-green);
+  color: white;
+}
+.line:hover:not(.disabled) {
+  background: var(--line-green-dark);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.ghost:hover:not(.disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+.outline:hover:not(.disabled) {
+  background: var(--primary-light);
+}
+
+.outlineDanger {
+  background: transparent;
+  color: var(--expense);
+  border: 1.5px solid var(--expense);
+}
+.outlineDanger:hover:not(.disabled) {
+  background: var(--expense-light);
+}
+
+/* ── States ── */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading {
+  cursor: wait;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* ── Spinner ── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.ghost .spinner, .outline .spinner {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: var(--primary);
+}
+
+/* ── Icon Only ── */
+.iconOnly {
+  padding: 8px;
+}
+
+.iconOnly.sm {
+  padding: 6px;
+}
+
+.iconOnly.lg {
+  padding: 12px;
+}

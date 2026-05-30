@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1565C0;
+  --color-primary-dark: #0D47A1;
+  --color-primary-light: #E3F2FD;
+  --color-primary-hover: #1976D2;
+  
+  --color-income: #00C853;
+  --color-income-light: #E8F5E9;
+  --color-income-dark: #00A843;
+  
+  --color-expense: #FF5252;
+  --color-expense-light: #FFEBEE;
+  --color-expense-dark: #D32F2F;
+  
+  --color-profit: #2979FF;
+  --color-profit-light: #E3F2FD;
+  
+  --color-line-green: #06C755;
+  --color-line-green-dark: #05B04A;
+
+  --color-warning: #FFB300;
+  --color-warning-light: #FFF8E1;
+  --color-info: #29B6F6;
+  --color-info-light: #E1F5FE;
+
+  --color-bg: #F0F2F5;
+  --color-bg-alt: #F8F9FB;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #FAFBFC;
+  --color-text: #1A1A2E;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+  --shadow-primary: 0 4px 14px rgba(21, 101, 192, 0.3);
+  --shadow-income: 0 4px 14px rgba(0, 200, 83, 0.25);
+  --shadow-expense: 0 4px 14px rgba(255, 82, 82, 0.25);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+
+  --font-sans: 'Prompt', 'Inter', sans-serif;
+  --font-thai: 'Prompt', sans-serif;
+  --font-en: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-thai);
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-thai);
+    font-weight: 600;
+  }
+}
+
+.num, .currency {
+  font-family: var(--font-en);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom shimmer loading */
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    #F3F4F6 25%,
+    #F8F9FB 50%,
+    #F3F4F6 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 🖨️ Professional Print Styles for SME Reports */
+@media print {
+  aside, header, footer, button, input, select, .no-print, [role="tablist"] {
+    display: none !important;
+  }
+
+  main, body, html, #root {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .bg-white {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+  }
+
+  /* Charts adjustments for printing */
+  .recharts-legend-wrapper {
+    margin-top: 10px !important;
+  }
+}
+

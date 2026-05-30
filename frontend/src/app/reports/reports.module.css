@@ -1,0 +1,144 @@
+.page {
+  animation: fadeInUp 0.4s ease;
+}
+
+/* ── Period Selector ── */
+.periodBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.periodPills {
+  display: flex;
+  gap: 0;
+  background: var(--surface);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.periodPill {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.periodPill:hover {
+  color: var(--text);
+}
+
+.periodPill.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-primary);
+}
+
+.dateRange {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dateInput {
+  width: 160px;
+}
+
+.dateSep {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* ── Summary Cards ── */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.summaryCard {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  text-align: center;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.summaryCard:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.summaryLabel {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.summaryAmount {
+  font-family: var(--font-en);
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.summaryAmount.income { color: var(--income); }
+.summaryAmount.expense { color: var(--expense); }
+.summaryAmount.profit { color: var(--profit); }
+
+/* ── Chart ── */
+.chartCard {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.chartTitle {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.chartWrap {
+  width: 100%;
+  height: 360px;
+}
+
+/* ── Export ── */
+.exportSection {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+  .periodBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .chartWrap {
+    height: 280px;
+  }
+}

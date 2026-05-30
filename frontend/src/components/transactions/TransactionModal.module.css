@@ -1,0 +1,86 @@
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--space-5);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.activeIncome {
+  background: var(--income);
+  color: white;
+  box-shadow: var(--shadow-income);
+}
+
+.tab.activeExpense {
+  background: var(--expense);
+  color: white;
+  box-shadow: var(--shadow-expense);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.required {
+  color: var(--expense);
+  margin-left: 2px;
+}
+
+.error {
+  border-color: var(--expense) !important;
+  box-shadow: 0 0 0 3px rgba(255, 82, 82, 0.12) !important;
+}
+
+.errorText {
+  font-size: 0.8rem;
+  color: var(--expense);
+}
+
+.amountInput {
+  font-family: var(--font-en);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 480px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

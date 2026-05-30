@@ -1,0 +1,173 @@
+.page {
+  animation: fadeInUp 0.4s ease;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.topTitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ── Chat Container ── */
+.chatContainer {
+  background: #E5E5E5;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  min-height: 500px;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* ── Date Separator ── */
+.dateSeparator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--space-2) 0;
+}
+
+.dateLabel {
+  background: rgba(0, 0, 0, 0.1);
+  color: #555;
+  font-size: 0.75rem;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Chat Bubble ── */
+.bubbleRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-width: 80%;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--line-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-en);
+}
+
+.bubble {
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  position: relative;
+  word-break: break-word;
+}
+
+.bubble.income {
+  background: var(--line-green);
+  color: white;
+  border-bottom-left-radius: 4px;
+}
+
+.bubble.expense {
+  background: white;
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-xs);
+}
+
+.bubble.system {
+  background: white;
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-xs);
+}
+
+.bubble.daily_summary {
+  background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.bubbleAmount {
+  display: block;
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 4px;
+}
+
+.bubble.income .bubbleAmount {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.bubbleTime {
+  display: block;
+  font-size: 0.7rem;
+  margin-top: 6px;
+  opacity: 0.6;
+}
+
+.bubble.income .bubbleTime {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.unreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--expense);
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  animation: pulse 2s infinite;
+}
+
+/* ── Empty State ── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+.emptyTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-2);
+}
+
+.emptyText {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .bubbleRow {
+    max-width: 90%;
+  }
+  .chatContainer {
+    padding: var(--space-4);
+  }
+}

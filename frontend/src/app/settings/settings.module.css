@@ -1,0 +1,276 @@
+.page {
+  animation: fadeInUp 0.4s ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── Section Card ── */
+.section {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.sectionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sectionIcon.blue {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.sectionIcon.green {
+  background: var(--income-light);
+  color: var(--line-green);
+}
+
+.sectionIcon.purple {
+  background: #F3E5F5;
+  color: #7B1FA2;
+}
+
+.sectionIcon.red {
+  background: var(--expense-light);
+  color: var(--expense);
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sectionBody {
+  padding: var(--space-6);
+}
+
+/* ── Form Fields ── */
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.saveRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+/* ── LINE Status ── */
+.lineStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: 0.875rem;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}
+
+.statusDot.connected {
+  background: var(--income);
+  box-shadow: 0 0 8px rgba(0, 200, 83, 0.4);
+}
+
+.statusDot.disconnected {
+  background: var(--text-tertiary);
+}
+
+.tokenRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.tokenInput {
+  flex: 1;
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.toggleBtn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Categories ── */
+.catTabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: var(--space-4);
+}
+
+.catTab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.catTab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.catItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+
+.catItem:hover {
+  background: var(--bg-alt);
+}
+
+.catColor {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color var(--transition);
+}
+
+.catColor:hover {
+  border-color: var(--border);
+}
+
+.catName {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.catNameInput {
+  flex: 1;
+  padding: 6px 10px !important;
+  font-size: 0.9rem !important;
+}
+
+.catActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.catActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  color: var(--text-tertiary);
+  transition: all var(--transition);
+}
+
+.catActionBtn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.catActionBtn.deleteBtn:hover {
+  background: var(--expense-light);
+  color: var(--expense);
+}
+
+.addCatRow {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-light);
+}
+
+.addCatInput {
+  flex: 1;
+}
+
+/* ── Danger Zone ── */
+.dangerText {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+  line-height: 1.6;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .tokenRow {
+    flex-direction: column;
+  }
+}

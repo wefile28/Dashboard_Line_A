@@ -1,0 +1,73 @@
+.skeleton {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--border-light) 25%,
+    var(--bg-alt) 50%,
+    var(--border-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.text {
+  height: 16px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.textShort {
+  width: 60%;
+}
+
+.heading {
+  height: 24px;
+  width: 40%;
+  margin-bottom: 12px;
+}
+
+.card {
+  height: 140px;
+  border-radius: var(--radius-md);
+}
+
+.chart {
+  height: 300px;
+  border-radius: var(--radius-md);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.tableRow {
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-xs);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+}

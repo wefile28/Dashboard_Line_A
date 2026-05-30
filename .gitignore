@@ -1,0 +1,51 @@
+# ==========================================
+# U-Dash Root GitIgnore Configuration
+# ==========================================
+
+# 1. Dependency Directories
+node_modules/
+jspm_packages/
+web_modules/
+venv/
+.venv/
+env/
+ENV/
+lib/
+lib64/
+
+# 2. Next.js & Frontend Builds
+.next/
+out/
+build/
+dist/
+.docusaurus/
+.cache/
+
+# 3. Databases & Logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+backend/dashboard.db
+backend/dashboard.db-journal
+
+# 4. Environment Variables & Secret Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+!*.env.example
+
+# 5. OS & IDE System Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

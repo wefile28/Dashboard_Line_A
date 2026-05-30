@@ -1,0 +1,333 @@
+.page {
+  animation: fadeInUp 0.4s ease;
+}
+
+/* ── Summary Cards ── */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.summaryCard {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  transition: transform var(--transition), box-shadow var(--transition);
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.summaryCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.summaryCard::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  opacity: 0.06;
+  transform: translate(30%, -30%);
+}
+
+.summaryCard.income::after { background: var(--income); }
+.summaryCard.expense::after { background: var(--expense); }
+.summaryCard.profit::after { background: var(--profit); }
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.cardIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cardIcon.income {
+  background: var(--income-light);
+  color: var(--income);
+}
+.cardIcon.expense {
+  background: var(--expense-light);
+  color: var(--expense);
+}
+.cardIcon.profit {
+  background: var(--profit-light);
+  color: var(--profit);
+}
+
+.changeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-en);
+}
+
+.changeBadge.positive {
+  background: var(--income-light);
+  color: var(--income-dark);
+}
+
+.changeBadge.negative {
+  background: var(--expense-light);
+  color: var(--expense-dark);
+}
+
+.cardLabel {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.cardAmount {
+  font-family: var(--font-en);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparkline {
+  margin-top: var(--space-3);
+  height: 40px;
+}
+
+/* ── Charts ── */
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.chartCard {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  padding: var(--space-5) var(--space-6);
+}
+
+.chartTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-4);
+}
+
+.chartWrap {
+  width: 100%;
+  height: 280px;
+}
+
+.pieSection {
+  grid-column: 1 / -1;
+}
+
+.pieLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.pieChart {
+  height: 280px;
+}
+
+/* ── Recent Table ── */
+.recentSection {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+.recentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.recentTitle {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.viewAllLink {
+  font-size: 0.875rem;
+  color: var(--primary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--transition);
+}
+
+.viewAllLink:hover {
+  color: var(--primary-dark);
+}
+
+.table {
+  width: 100%;
+}
+
+.table th {
+  text-align: left;
+  padding: var(--space-3) var(--space-6);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-6);
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: var(--bg-alt);
+}
+
+.categoryDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.amountIncome {
+  color: var(--income);
+  font-weight: 600;
+  font-family: var(--font-en);
+}
+
+.amountExpense {
+  color: var(--expense);
+  font-weight: 600;
+  font-family: var(--font-en);
+}
+
+/* ── Legend ── */
+.legendList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.875rem;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  flex: 1;
+  color: var(--text);
+}
+
+.legendValue {
+  font-family: var(--font-en);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.legendPercent {
+  font-family: var(--font-en);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ── Tooltip ── */
+.tooltip {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-md) !important;
+  padding: var(--space-3) var(--space-4) !important;
+}
+
+.tooltipLabel {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.tooltipItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.tooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+  .pieLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .table th:nth-child(4),
+  .table td:nth-child(4) {
+    display: none;
+  }
+}
