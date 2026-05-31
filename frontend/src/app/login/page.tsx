@@ -17,6 +17,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState('udash2026');
   const [loading, setLoading] = useState(false);
 
+  // Check for session expiration query param on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('session_expired') === 'true') {
+        // Delay slightly to let ToastContext initialize fully
+        const timer = setTimeout(() => {
+          addToast('error', 'เซสชันเดิมหมดอายุแล้ว กรุณาล็อกอินเข้าสู่ระบบอีกครั้งเพื่อความปลอดภัย');
+        }, 150);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [addToast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {

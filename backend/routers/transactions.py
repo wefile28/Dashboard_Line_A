@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlmodel import Session, select, func, col
 
-from database import get_session
+from database import get_session, engine
 from models import (
     Transaction,
     TransactionCreate,
@@ -154,6 +154,20 @@ def get_recent_transactions(
     return items
 
 
+def send_line_and_log_status(notification_id: int, token: str, message: str):
+    """
+    Synchronous background task that pushes to LINE Notify and logs the success/failure status
+    directly inside the SQLite/PostgreSQL Database notification message.
+    """
+    res = send_notification_sync(token, message)
+    with Session(engine) as session:
+        notification = session.get(Notification, notification_id)
+        if notification:
+            status_text = "🟢 [ส่ง LINE สำเร็จ]" if res["success"] else f"🔴 [ส่ง LINE ล้มเหลว: {res['detail']}]"
+            notification.message = f"{notification.message}\n{status_text}"
+            session.add(notification)
+            session.commit()
+
 @router.post("", status_code=201)
 def create_transaction(
     data: TransactionCreate,
@@ -215,7 +229,16 @@ def create_transaction(
                 data.title, data.amount, data.date.strftime("%d/%m/%Y")
             )
         
-        background_tasks.add_task(send_notification_sync, token_setting.value, line_msg)
+        background_tasks.add_task(send_line_and_log_status, notification.id, token_setting.value, line_msg)
+    else:
+        # Log immediately that LINE notification was not sent
+        status_text = "⚠️ [ไม่ได้ส่ง LINE: ไม่ได้ตั้งค่า Token ในระบบ]"
+        if notification_enabled and notification_enabled.value != "true":
+            status_text = "⚠️ [ไม่ได้ส่ง LINE: การแจ้งเตือนถูกปิดการใช้งาน]"
+            
+        notification.message = f"{notification.message}\n{status_text}"
+        session.add(notification)
+        session.commit()
 
     # Return created resource details
     return {

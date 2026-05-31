@@ -12,7 +12,8 @@ import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/contexts/ToastContext';
 import {
   getSettings, updateSettings, testLineNotify, resetData,
-  getCategories, createCategory, updateCategory, deleteCategory, Category, changePassword
+  getCategories, createCategory, updateCategory, deleteCategory, Category, changePassword,
+  downloadBackup, restoreBackup
 } from '@/lib/api';
 import { mockSettings } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,12 @@ export default function SettingsPage() {
   // Reset modal
   const [resetModal, setResetModal] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  // Backup & Restore states
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [restoreModal, setRestoreModal] = useState(false);
 
   useEffect(() => {
     setShopNameInput(settings.shop_name);
@@ -70,6 +77,66 @@ export default function SettingsPage() {
       addToast('error', err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  // ── SQLite Backup & Restore Handlers ──
+  async function handleBackupDownload() {
+    setBackingUp(true);
+    try {
+      const blob = await downloadBackup();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `udash_backup_${new Date().toISOString().split('T')[0]}.db`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      addToast('success', 'ดาวน์โหลดไฟล์ฐานข้อมูลสำรองสำเร็จ! กรุณาเก็บไว้ในที่ปลอดภัย');
+    } catch (err: any) {
+      console.warn('Backup error:', err);
+      addToast('error', err.message || 'สำรองข้อมูลล้มเหลว');
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
+  async function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.db')) {
+      addToast('error', 'กรุณาอัปโหลดไฟล์ที่มีนามสกุล .db เท่านั้น');
+      e.target.value = '';
+      return;
+    }
+
+    setSelectedFile(file);
+    setRestoreModal(true);
+    e.target.value = '';
+  }
+
+  async function executeRestore() {
+    if (!selectedFile) return;
+    setRestoring(true);
+    try {
+      const res = await restoreBackup(selectedFile);
+      if (res.success) {
+        addToast('success', 'กู้คืนระบบสำเร็จแล้ว! กำลังรีโหลดระบบ...');
+        setRestoreModal(false);
+        setSelectedFile(null);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        addToast('error', res.message || 'กู้คืนข้อมูลไม่สำเร็จ');
+      }
+    } catch (err: any) {
+      console.warn('Restore error:', err);
+      addToast('error', err.message || 'เกิดข้อผิดพลาดในการอัปโหลดกู้คืนข้อมูล');
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -491,6 +558,59 @@ export default function SettingsPage() {
         </div>
       </motion.div>
 
+      {/* ── 5. Disaster Recovery Console settings card ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22, duration: 0.4 }}
+        className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden"
+      >
+        <div className="flex items-center gap-2.5 px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+          <div className="w-8 h-8 bg-blue-50 text-primary rounded-xl flex items-center justify-center">
+            <Database size={18} />
+          </div>
+          <h3 className="text-sm md:text-base font-bold text-slate-800 font-prompt">สำรองและกู้คืนฐานข้อมูล (Disaster Recovery Console)</h3>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <p className="text-xs text-slate-500 font-prompt leading-relaxed">
+            ระบบ U-Dash ทำงานบนฐานข้อมูลแบบ zero-config (SQLite) คุณสามารถดาวน์โหลดข้อมูลธุรกรรมและหมวดหมู่การตั้งค่าทั้งหมดเก็บเป็นไฟล์กู้คืนฉุกเฉิน (.db) ได้ในคลิกเดียว และอัปโหลดไฟล์เก่ากลับเข้าเขียนทับเพื่อคืนค่าระบบได้ทันที
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            {/* Download Backup Button */}
+            <Button
+              variant="outline"
+              loading={backingUp}
+              onClick={handleBackupDownload}
+              className="flex items-center gap-2 select-none cursor-pointer"
+            >
+              <Database size={15} />
+              <span>ดาวน์โหลดไฟล์สำรอง (.db)</span>
+            </Button>
+
+            {/* Upload Restore Input Wrapper */}
+            <div className="relative overflow-hidden inline-block w-full sm:w-auto">
+              <input
+                type="file"
+                accept=".db"
+                onChange={handleRestore}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                title="กู้คืนจากไฟล์ฐานข้อมูล"
+              />
+              <Button
+                variant="primary"
+                type="button"
+                className="flex items-center gap-2 select-none pointer-events-none w-full justify-center"
+              >
+                <Plus size={15} />
+                <span>กู้คืนระบบจากไฟล์สำรอง</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* ── 4. Danger Zone settings card ── */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -544,6 +664,48 @@ export default function SettingsPage() {
               <h4 className="font-bold text-slate-800 font-prompt text-base">ระบบกำลังล้างข้อมูลทุกอย่าง</h4>
               <p className="text-xs text-slate-400 font-prompt mt-1 px-4">
                 คุณแน่ใจแล้วใช่หรือไม่? ข้อมูลประวัติการเงิน หมวดหมู่ที่สร้างขึ้น และแชท LINE Notify ทั้งหมดจะสูญหายโดยสิ้นเชิง
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Database Restore Confirm Modal */}
+      {restoreModal && (
+        <Modal
+          isOpen={restoreModal}
+          onClose={() => {
+            setRestoreModal(false);
+            setSelectedFile(null);
+          }}
+          title="ต้องการกู้คืนข้อมูลระบบ?"
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setRestoreModal(false);
+                  setSelectedFile(null);
+                }}
+              >
+                ยกเลิก
+              </Button>
+              <Button variant="primary" loading={restoring} onClick={executeRestore}>
+                ยืนยันการอัปโหลดและเขียนทับ
+              </Button>
+            </>
+          }
+        >
+          <div className="text-center py-4 space-y-4">
+            <div className="w-14 h-14 bg-blue-50 text-[#0D47A1] rounded-full flex items-center justify-center mx-auto border border-blue-100 animate-pulse">
+              <Database size={24} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-bold text-slate-800 font-prompt text-base">ระบบจะทำการทับฐานข้อมูลเดิม</h4>
+              <p className="text-xs text-slate-450 font-prompt mt-1 px-4">
+                ไฟล์ฐานข้อมูลสำรองที่อัปโหลดคือ: <span className="font-semibold text-slate-600 font-mono text-[11px] block mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg">{selectedFile?.name}</span>
+                <span className="block text-red-500 font-semibold mt-3">⚠️ คำเตือน: ข้อมูลการเงินทั้งหมดบนโปรแกรมในปัจจุบันจะถูกเขียนทับด้วยข้อมูลจากไฟล์นี้โดยสมบูรณ์!</span>
               </p>
             </div>
           </div>

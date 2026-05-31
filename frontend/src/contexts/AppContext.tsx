@@ -19,6 +19,10 @@ interface AppContextValue {
   setUnreadCount: (n: number) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
   isAdmin: boolean;
   setIsAdmin: (admin: boolean) => void;
   login: (token: string) => void;
@@ -42,7 +46,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [unreadCount, setUnreadCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Sync theme and sidebarCollapsed from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+      setSidebarCollapsedState(collapsed);
+
+      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' || 'light';
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', nextTheme);
+      if (nextTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  };
+
+  const setSidebarCollapsed = (collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar_collapsed', String(collapsed));
+    }
+  };
 
   // Check login state on mount
   useEffect(() => {
@@ -118,6 +160,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUnreadCount,
       sidebarOpen,
       setSidebarOpen,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      theme,
+      toggleTheme,
       isAdmin,
       setIsAdmin,
       login,

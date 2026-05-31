@@ -3,15 +3,20 @@ Settings API router.
 Manages shop details and LINE Notify configurations.
 Secured with JWT-based administrator authorization.
 Masks the sensitive line_token on read operations.
+Includes backup, restore, and reset database endpoints for disaster recovery.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlmodel import Session, select, col
 
-from database import get_session
-from models import StoreSetting, User
+from database import get_session, DATABASE_URL, engine
+from models import StoreSetting, User, Transaction, Notification, Category
 from auth import get_current_user
 from services.line_notify import send_notification
+from services.seed_data import seed_all
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -100,3 +105,109 @@ async def test_line_notification(
         )
 
     return result
+
+
+@router.get("/backup")
+def backup_database(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Backup the SQLite database file.
+    Secured with administrator authorization.
+    Only supported for SQLite engines.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        raise HTTPException(
+            status_code=400,
+            detail="ระบบสำรองข้อมูลด้วยไฟล์รองรับเฉพาะฐานข้อมูลแบบโลคอล (SQLite) เท่านั้น"
+        )
+    
+    db_file = DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_file):
+        raise HTTPException(
+            status_code=404,
+            detail="ไม่พบไฟล์ฐานข้อมูลระบบหลัก"
+        )
+    
+    return FileResponse(
+        path=db_file,
+        filename="udash_backup.db",
+        media_type="application/octet-stream"
+    )
+
+
+@router.post("/restore")
+async def restore_database(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Restore the SQLite database file.
+    Secured with administrator authorization.
+    Only supported for SQLite engines.
+    """
+    if not DATABASE_URL.startswith("sqlite"):
+        raise HTTPException(
+            status_code=400,
+            detail="ระบบกู้คืนข้อมูลด้วยไฟล์รองรับเฉพาะฐานข้อมูลแบบโลคอล (SQLite) เท่านั้น"
+        )
+        
+    # Read the first 16 bytes to check SQLite file signature
+    header = await file.read(16)
+    if header != b"SQLite format 3\x00":
+        raise HTTPException(
+            status_code=400,
+            detail="ไฟล์ที่อัปโหลดไม่ใช่ไฟล์ฐานข้อมูล SQLite ที่ถูกต้อง"
+        )
+    
+    # Seek back to start of file
+    await file.seek(0)
+    
+    db_file = DATABASE_URL.replace("sqlite:///", "")
+    
+    # Safely close connections and replace database
+    try:
+        # Dispose the database engine to unlock the file
+        engine.dispose()
+        
+        # Write the uploaded file over the database file
+        with open(db_file, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+            
+        return {"success": True, "message": "กู้คืนระบบฐานข้อมูลสำเร็จแล้ว!"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"เกิดข้อผิดพลาดในการเขียนทับฐานข้อมูล: {str(e)}"
+        )
+
+
+@router.post("/reset")
+def reset_database(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reset all database transactions and notifications to fresh seeded demo data.
+    Secured with administrator authorization.
+    """
+    try:
+        # Clean delete of all transactions, notifications, and categories
+        # Note: We do NOT delete the User table to avoid deleting the logged-in admin!
+        session.query(Transaction).delete()
+        session.query(Notification).delete()
+        session.query(Category).delete()
+        session.commit()
+        
+        # Re-seed categories, transactions, settings and notifications
+        seed_all(session)
+        
+        return {"success": True, "message": "รีเซ็ตข้อมูลและโหลดข้อมูลเดโมตัวอย่างใหม่สำเร็จแล้ว"}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"เกิดข้อผิดพลาดในการรีเซ็ตข้อมูล: {str(e)}"
+        )

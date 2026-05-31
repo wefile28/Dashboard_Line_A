@@ -143,7 +143,7 @@ export default function NotificationsPage() {
                       <div className="flex items-end gap-1.5 min-w-0">
                         <div
                           className={cn(
-                            'p-3.5 rounded-2xl text-xs font-prompt shadow-xs break-words leading-relaxed max-w-lg',
+                            'p-3.5 rounded-2xl text-xs font-prompt shadow-xs break-words whitespace-pre-line leading-relaxed max-w-lg',
                             isIncome
                               ? 'bg-line-green text-white rounded-tl-sm'
                               : 'bg-white text-slate-800 rounded-tl-sm border border-slate-200'

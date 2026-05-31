@@ -6,12 +6,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
-import { Download, TrendingUp, TrendingDown, Calendar, FileDown, Printer } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, Calendar, FileDown, Printer, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/contexts/ToastContext';
 import { getReport, exportCSV, ReportSummary } from '@/lib/api';
 import { getMockReport } from '@/lib/mockData';
-import { formatCurrency, formatThaiMonth, cn, downloadBlob } from '@/lib/utils';
+import { formatCurrency, formatDate, formatThaiMonth, cn, downloadBlob } from '@/lib/utils';
 
 const periods = [
   { value: 'day', label: 'วัน' },
@@ -78,7 +78,7 @@ export default function ReportsPage() {
         end_date: endDate ? endDate : undefined,
       };
       const blob = await exportCSV(params);
-      downloadBlob(blob, `report_${period}_${new Date().toISOString().split('T')[0]}.csv`);
+      downloadBlob(blob, `รายงานบัญชี_UDash_${period || 'custom'}_${new Date().toISOString().split('T')[0]}.csv`);
       addToast('success', 'ดาวน์โหลด CSV สำเร็จ');
     } catch (err) {
       console.warn('API error, simulating local CSV export fallback.', err);
@@ -91,7 +91,7 @@ export default function ReportsPage() {
         }).join('\n') || '');
       
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      downloadBlob(blob, `report_${period}_${new Date().toISOString().split('T')[0]}_sandbox.csv`);
+      downloadBlob(blob, `รายงานบัญชี_UDash_${period || 'custom'}_${new Date().toISOString().split('T')[0]}_sandbox.csv`);
       addToast('success', 'ดาวน์โหลด CSV สำเร็จ (Sandbox)');
     } finally {
       setExporting(false);
@@ -127,8 +127,33 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {/* 🖨️ Print-Only Elegant Header Letterhead */}
+      <div className="hidden print:block border-b-2 border-slate-300 pb-5 mb-8 font-prompt">
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">รายงานสรุปผลการดำเนินงานทางบัญชี U-Dash Pro</h1>
+            <p className="text-xs text-slate-500 mt-1">เอกสารแสดงรายรับ รายจ่าย และผลกำไรสุทธิอย่างเป็นทางการสำหรับร้านค้า</p>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-slate-800 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 uppercase tracking-wider num font-inter">
+              U-DASH MASTER PRO REPORT
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 mt-6 text-[11px] text-slate-600 border-t border-slate-100 pt-3">
+          <div>
+            <span className="font-semibold text-slate-800">ช่วงเวลาสรุป:</span> {
+              period === 'day' ? 'รายวัน' : period === 'week' ? 'รายสัปดาห์ (7 วันล่าสุด)' : period === 'month' ? 'รายเดือน' : period === 'year' ? 'รายปี' : 'กำหนดช่วงเวลาเอง'
+            } {startDate && `(${startDate}`} {endDate && `ถึง ${endDate})`}
+          </div>
+          <div className="text-right">
+            <span className="font-semibold text-slate-800">วันที่พิมพ์เอกสาร:</span> {new Date().toLocaleDateString('th-TH')} | <span className="font-semibold text-slate-800">สถานะระบบ:</span> ยืนยันข้อมูลถูกต้อง (Verified)
+          </div>
+        </div>
+      </div>
+
       {/* ── Period & Range Selector Bar ── */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
         {/* Period Pills */}
         <div className="flex bg-slate-100 p-1.5 rounded-xl gap-1 shrink-0 self-start md:self-auto">
           {periods.map(p => (
@@ -258,6 +283,76 @@ export default function ReportsPage() {
           )}
         </div>
       </motion.div>
+
+      {/* ── Financial Ledger Table Breakdown ── */}
+      {report && report.data && report.data.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.5 }}
+          className="bg-white border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-colors"
+        >
+          <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 font-prompt flex items-center gap-2">
+              <Receipt size={18} className="text-primary dark:text-[#2979FF]" />
+              ตารางจำแนกรายละเอียดบัญชีรายวัน / รายเดือน (Financial Ledger)
+            </h3>
+            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold px-2.5 py-1 rounded-md font-prompt">
+              {report.data.length} รายการสรุป
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] border-collapse text-left">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase font-prompt">
+                  <th className="px-6 py-3.5">วันที่ / รอบการบัญชี</th>
+                  <th className="px-6 py-3.5 text-right">รายรับสะสม (Revenue)</th>
+                  <th className="px-6 py-3.5 text-right">รายจ่ายสะสม (Expense)</th>
+                  <th className="px-6 py-3.5 text-right">กำไรสุทธิ (Net Profit)</th>
+                  <th className="px-6 py-3.5 text-center">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm font-prompt">
+                {report.data.map((item: any, idx: number) => {
+                  const dateLabel = 'date' in item 
+                    ? formatDate(item.date) 
+                    : `${formatThaiMonth(item.month)} ${item.year + 543}`;
+                  const isProfit = item.profit >= 0;
+
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">{dateLabel}</td>
+                      <td className="px-6 py-4 text-right text-emerald-600 dark:text-emerald-400 font-bold font-inter num">
+                        +{formatCurrency(item.income)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-rose-500 dark:text-rose-400 font-bold font-inter num">
+                        -{formatCurrency(item.expense)}
+                      </td>
+                      <td className={cn(
+                        "px-6 py-4 text-right font-extrabold font-inter num text-base",
+                        isProfit ? "text-blue-600 dark:text-blue-400" : "text-rose-500 dark:text-rose-400"
+                      )}>
+                        {isProfit ? '+' : ''}{formatCurrency(item.profit)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold select-none",
+                          isProfit 
+                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" 
+                            : "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
+                        )}>
+                          {isProfit ? '🟢 กำไร' : '🔴 ขาดทุนสะสม'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── CSV & PDF Export action block ── */}
       <div className="flex justify-end gap-3 no-print">
