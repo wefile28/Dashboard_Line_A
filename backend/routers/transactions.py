@@ -5,7 +5,7 @@ Uses FastAPI BackgroundTasks for asynchronous LINE Notify alerts.
 Secured with JWT-based administrator authorization.
 """
 
-from datetime import date
+from datetime import date as date_type
 from math import ceil
 from typing import Optional
 
@@ -32,20 +32,121 @@ from services.line_notify import (
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
+from pydantic import BaseModel
+
+class TransactionCreateInput(BaseModel):
+    type: str  # "income" | "expense"
+    title: str
+    amount: float
+    category_id: Optional[int] = None
+    category: Optional[str] = None
+    note: Optional[str] = None
+    date: Optional[date_type] = None
+
+class TransactionUpdateInput(BaseModel):
+    type: Optional[str] = None
+    title: Optional[str] = None
+    amount: Optional[float] = None
+    category_id: Optional[int] = None
+    category: Optional[str] = None
+    note: Optional[str] = None
+    date: Optional[date_type] = None
+
+
+def resolve_category(
+    category_id: Optional[int],
+    category_name: Optional[str],
+    tx_type: str,
+    session: Session
+) -> int:
+    """
+    Resolves the category ID from either category_id or category_name.
+    If category_name is supplied, attempts to find or dynamically create it with a premium preset.
+    """
+    if category_id is not None:
+        cat = session.get(Category, category_id)
+        if cat:
+            return cat.id
+            
+    if category_name is not None and category_name.strip():
+        name_clean = category_name.strip()
+        cat = session.exec(
+            select(Category).where(col(Category.name) == name_clean, col(Category.type) == tx_type)
+        ).first()
+        if cat:
+            return cat.id
+            
+        # Dynamically create category using premium solver (Colors & Icons)
+        name_l = name_clean.lower()
+        if tx_type == "income":
+            if "ขาย" in name_l:
+                icon, color = "🛒", "#22c55e"
+            elif "บริการ" in name_l:
+                icon, color = "🔧", "#3b82f6"
+            elif "คอม" in name_l or "แนะ" in name_l:
+                icon, color = "🤝", "#06b6d4"
+            else:
+                icon, color = "💎", "#a855f7"
+        else:
+            if "วัตถุดิบ" in name_l or "ซื้อ" in name_l:
+                icon, color = "📦", "#ef4444"
+            elif "เช่า" in name_l:
+                icon, color = "🏠", "#f97316"
+            elif "น้ำ" in name_l or "ไฟ" in name_l or "เน็ต" in name_l:
+                icon, color = "💡", "#eab308"
+            elif "เดือน" in name_l or "จ้าง" in name_l or "พนักงาน" in name_l:
+                icon, color = "👥", "#ec4899"
+            elif "ส่ง" in name_l or "รถ" in name_l or "มัน" in name_l:
+                icon, color = "🚚", "#8b5cf6"
+            elif "ตลาด" in name_l or "โฆษณา" in name_l or "แอด" in name_l:
+                icon, color = "📣", "#14b8a6"
+            else:
+                icon, color = "📝", "#64748b"
+                
+        new_cat = Category(name=name_clean, type=tx_type, icon=icon, color=color)
+        session.add(new_cat)
+        session.flush() # Populate new_cat.id
+        return new_cat.id
+        
+    # Fallback to general "อื่นๆ" category of that type
+    default_name = "อื่นๆ"
+    cat = session.exec(
+        select(Category).where(col(Category.name) == default_name, col(Category.type) == tx_type)
+    ).first()
+    if cat:
+        return cat.id
+        
+    # Create default "อื่นๆ" if missing
+    new_cat = Category(name=default_name, type=tx_type, icon="📝", color="#64748b")
+    session.add(new_cat)
+    session.flush()
+    return new_cat.id
+
+
+
 @router.get("")
 def list_transactions(
     type: Optional[str] = None,
     category_id: Optional[int] = None,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    category: Optional[str] = None,
+    start_date: Optional[date_type] = None,
+    end_date: Optional[date_type] = None,
     search: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
+    per_page: Optional[int] = Query(None, ge=1, le=100),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     List transactions with support for filters, search, and pagination.
+    Aligned with per_page query parameters and category name filtering.
     """
+    # Use per_page if supplied, otherwise fall back to limit
+    limit_val = per_page if per_page is not None else limit
+    if limit_val < 1:
+        limit_val = 20
+    
     query = select(Transaction)
     count_query = select(func.count()).select_from(Transaction)
 
@@ -55,6 +156,12 @@ def list_transactions(
     if category_id:
         query = query.where(col(Transaction.category_id) == category_id)
         count_query = count_query.where(col(Transaction.category_id) == category_id)
+    elif category and category != "all" and category.strip():
+        # Clean the name and filter
+        cat_clean = category.strip()
+        query = query.join(Category, col(Transaction.category_id) == col(Category.id)).where(col(Category.name) == cat_clean)
+        count_query = count_query.join(Category, col(Transaction.category_id) == col(Category.id)).where(col(Category.name) == cat_clean)
+        
     if start_date:
         query = query.where(col(Transaction.date) >= start_date)
         count_query = count_query.where(col(Transaction.date) >= start_date)
@@ -76,9 +183,9 @@ def list_transactions(
     total = session.exec(count_query).one()
 
     # Paginate and sort
-    offset = (page - 1) * limit
+    offset = (page - 1) * limit_val
     query = query.order_by(col(Transaction.date).desc(), col(Transaction.id).desc())
-    query = query.offset(offset).limit(limit)
+    query = query.offset(offset).limit(limit_val)
 
     transactions = session.exec(query).all()
 
@@ -105,11 +212,16 @@ def list_transactions(
             }
         items.append(tx_dict)
 
+    # Calculate total pages
+    total_pages = ceil(total / limit_val) if total > 0 else 1
+
     return {
         "items": items,
         "total": total,
         "page": page,
-        "pages": ceil(total / limit) if total > 0 else 1,
+        "per_page": limit_val,
+        "total_pages": total_pages,
+        "pages": total_pages, # Backward compatibility support
     }
 
 
@@ -117,6 +229,7 @@ def list_transactions(
 def get_recent_transactions(
     limit: int = Query(default=5, ge=1, le=50),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get the most recent transactions.
@@ -170,28 +283,40 @@ def send_line_and_log_status(notification_id: int, token: str, message: str):
 
 @router.post("", status_code=201)
 def create_transaction(
-    data: TransactionCreate,
+    data: TransactionCreateInput,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """
     Create a new transaction.
-    Automatically creates a dashboard notification and enqueues an async LINE Notify alert task.
+    Automatically resolves category (via ID or name string), creates dashboard notification,
+    and enqueues an async LINE Notify/OA alert task.
     """
-    # Validate category exists
-    category = session.get(Category, data.category_id)
-    if not category:
-        raise HTTPException(status_code=404, detail="หมวดหมู่ไม่พบ")
-
     # Validate type consistency
     if data.type not in ("income", "expense"):
         raise HTTPException(status_code=400, detail="ประเภทต้องเป็น income หรือ expense")
 
-    tx = Transaction.model_validate(data)
+    # Resolve category id dynamically
+    resolved_cat_id = resolve_category(data.category_id, data.category, data.type, session)
+
+    # Set default date if missing
+    tx_date = data.date if data.date is not None else date_type.today()
+
+    tx = Transaction(
+        type=data.type,
+        title=data.title,
+        amount=data.amount,
+        category_id=resolved_cat_id,
+        note=data.note,
+        date=tx_date
+    )
     session.add(tx)
     session.commit()
     session.refresh(tx)
+
+    # Get resolved category for notification and JSON output
+    category = session.get(Category, resolved_cat_id)
 
     # Auto-create dashboard notification
     notif_prefix = "💰 รายรับ" if data.type == "income" else "💸 รายจ่าย"
@@ -205,7 +330,7 @@ def create_transaction(
     session.add(notification)
     session.commit()
 
-    # Retrieve settings for LINE Notify configuration
+    # Retrieve settings for LINE Notify/OA configuration
     token_setting = session.exec(
         select(StoreSetting).where(col(StoreSetting.key) == "line_token")
     ).first()
@@ -222,11 +347,11 @@ def create_transaction(
     ):
         if data.type == "income":
             line_msg = format_income_message(
-                data.title, data.amount, data.date.strftime("%d/%m/%Y")
+                data.title, data.amount, tx_date.strftime("%d/%m/%Y")
             )
         else:
             line_msg = format_expense_message(
-                data.title, data.amount, data.date.strftime("%d/%m/%Y")
+                data.title, data.amount, tx_date.strftime("%d/%m/%Y")
             )
         
         background_tasks.add_task(send_line_and_log_status, notification.id, token_setting.value, line_msg)
@@ -256,34 +381,56 @@ def create_transaction(
             "type": category.type,
             "icon": category.icon,
             "color": category.color,
-        },
+        } if category else None,
     }
 
 
 @router.put("/{transaction_id}")
 def update_transaction(
     transaction_id: int,
-    data: TransactionUpdate,
+    data: TransactionUpdateInput,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing transaction by ID. Secured with admin authorization.
     """
+    if current_user.role == "employee":
+        raise HTTPException(
+            status_code=403,
+            detail="สิทธิ์การใช้งานของพนักงานไม่สามารถแก้ไขรายการธุรกรรมได้ กรุณาติดต่อเจ้าของร้าน"
+        )
+        
     tx = session.get(Transaction, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="ไม่พบรายการที่ต้องการแก้ไข")
 
     update_data = data.model_dump(exclude_unset=True)
 
-    # Validate category if modified
-    if "category_id" in update_data:
-        category = session.get(Category, update_data["category_id"])
-        if not category:
-            raise HTTPException(status_code=404, detail="หมวดหมู่ไม่พบ")
+    # Determine type (use updated type, or fall back to existing transaction type)
+    tx_type = update_data.get("type", tx.type)
 
-    for key, value in update_data.items():
-        setattr(tx, key, value)
+    # Resolve category if either category_id or category string is provided
+    if "category_id" in update_data or "category" in update_data:
+        resolved_cat_id = resolve_category(
+            update_data.get("category_id"),
+            update_data.get("category"),
+            tx_type,
+            session
+        )
+        tx.category_id = resolved_cat_id
+
+    # Update other fields
+    if "type" in update_data:
+        tx.type = update_data["type"]
+    if "title" in update_data:
+        tx.title = update_data["title"]
+    if "amount" in update_data:
+        tx.amount = update_data["amount"]
+    if "note" in update_data:
+        tx.note = update_data["note"]
+    if "date" in update_data:
+        tx.date = update_data["date"]
 
     session.add(tx)
     session.commit()
@@ -317,6 +464,12 @@ def delete_transaction(
     """
     Delete a transaction by ID. Secured with admin authorization.
     """
+    if current_user.role == "employee":
+        raise HTTPException(
+            status_code=403,
+            detail="สิทธิ์การใช้งานของพนักงานไม่สามารถลบรายการธุรกรรมได้ กรุณาติดต่อเจ้าของร้าน"
+        )
+        
     tx = session.get(Transaction, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="ไม่พบรายการที่ต้องการลบ")

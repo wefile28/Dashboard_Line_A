@@ -21,6 +21,7 @@ from routers.transactions import router as transactions_router
 from routers.categories import router as categories_router
 from routers.settings import router as settings_router
 from routers.notifications import router as notifications_router
+from routers.reports import router as reports_router
 
 
 @asynccontextmanager
@@ -30,21 +31,42 @@ async def lifespan(app: FastAPI):
     Creates database tables if not existing, checks if database is empty,
     and runs the seed generator to load 14 days of realistic Thai business demo data.
     """
-    print("🚀 Starting U-Dash Dashboard API...")
+    print("Starting U-Dash Dashboard API...")
     create_db_and_tables()
 
     # Seed demo data if the admin user is not registered
     with Session(engine) as session:
         admin_exists = session.exec(select(User)).first()
         if not admin_exists:
-            print("📦 Database is empty. Seeding 14 days of premium demo data...")
+            print("Database is empty. Seeding 14 days of premium demo data...")
             seed_all(session)
         else:
-            print("✅ Database already populated. Skipping data seed.")
+            print("Database already populated. Skipping data seed.")
+            
+        # Automatically sync LINE_NOTIFY_TOKEN env to database StoreSetting
+        import os
+        from models import StoreSetting
+        from sqlmodel import col
+        
+        env_token = os.getenv("LINE_NOTIFY_TOKEN", "")
+        if env_token and env_token.strip():
+            db_token = session.exec(
+                select(StoreSetting).where(col(StoreSetting.key) == "line_token")
+            ).first()
+            if db_token:
+                if not db_token.value.strip():
+                    db_token.value = env_token.strip()
+                    session.add(db_token)
+                    session.commit()
+                    print("Synced empty database line_token with LINE_NOTIFY_TOKEN from environment.")
+            else:
+                session.add(StoreSetting(key="line_token", value=env_token.strip()))
+                session.commit()
+                print("Initialized database line_token with LINE_NOTIFY_TOKEN from environment.")
 
-    print("✅ U-Dash Dashboard Backend ready!")
+    print("U-Dash Dashboard Backend ready!")
     yield
-    print("👋 Shutting down U-Dash Dashboard Backend...")
+    print("Shutting down U-Dash Dashboard Backend...")
 
 
 # ─── FastAPI App Initialization ──────────────────────────────────────────────────
@@ -85,6 +107,7 @@ app.include_router(transactions_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")
 
 
 # ─── Core / Healthcheck Endpoints ───────────────────────────────────────────────

@@ -5,7 +5,7 @@
 // ============================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSettings, getCategories, getUnreadCount, Category, ShopSettings } from '@/lib/api';
+import { getSettings, getCategories, getUnreadCount, getMe, Category, ShopSettings } from '@/lib/api';
 import { mockSettings, mockCategories } from '@/lib/mockData';
 
 interface AppContextValue {
@@ -25,11 +25,16 @@ interface AppContextValue {
   toggleTheme: () => void;
   isAdmin: boolean;
   setIsAdmin: (admin: boolean) => void;
+  userRole: 'owner' | 'employee' | null;
+  setUserRole: (role: 'owner' | 'employee' | null) => void;
+  storeId: string | null;
+  setStoreId: (id: string | null) => void;
   login: (token: string) => void;
   logout: () => void;
   refreshSettings: () => Promise<void>;
   refreshCategories: () => Promise<void>;
   refreshUnread: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -86,17 +91,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const [userRole, setUserRole] = useState<'owner' | 'employee' | null>(null);
+  const [storeId, setStoreId] = useState<string | null>(null);
+
+  const refreshUserProfile = useCallback(async () => {
+    try {
+      const profile = await getMe();
+      setUserRole(profile.role);
+      setStoreId(profile.store_id);
+      setIsAdmin(profile.role === 'owner');
+    } catch (e) {
+      console.warn('Failed to load user profile, using mock default.', e);
+      setUserRole('owner');
+      setStoreId('brewlab');
+      setIsAdmin(true);
+    }
+  }, []);
+
   // Check login state on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
-      setIsAdmin(!!token);
+      if (token) {
+        refreshUserProfile();
+      } else {
+        setIsAdmin(false);
+        setUserRole(null);
+        setStoreId(null);
+      }
     }
-  }, []);
+  }, [refreshUserProfile]);
 
   const login = (token: string) => {
     localStorage.setItem('token', token);
-    setIsAdmin(true);
+    refreshUserProfile();
   };
 
   const logout = () => {
@@ -104,6 +132,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Clear the token cookie by setting its max-age to 0 (expired)
     document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
     setIsAdmin(false);
+    setUserRole(null);
+    setStoreId(null);
   };
 
   const setSettings = useCallback((newSettings: ShopSettings) => {
@@ -166,11 +196,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleTheme,
       isAdmin,
       setIsAdmin,
+      userRole,
+      setUserRole,
+      storeId,
+      setStoreId,
       login,
       logout,
       refreshSettings,
       refreshCategories,
       refreshUnread,
+      refreshUserProfile,
     }}>
       {children}
     </AppContext.Provider>

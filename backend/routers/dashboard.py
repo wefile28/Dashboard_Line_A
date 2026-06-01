@@ -13,6 +13,10 @@ from sqlmodel import Session, select, func, col
 from database import get_session
 from models import Transaction, Category
 
+from auth import get_current_user
+from models import User
+from fastapi import HTTPException, status
+
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
@@ -21,8 +25,14 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 def get_dashboard_summary(
     start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    if current_user.role == "employee":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="สิทธิ์การใช้งานของพนักงานไม่สามารถดึงข้อมูลรายงานการเงินสรุปได้"
+        )
     """
     Get overview stats, Recharts trend data, category expense breakdown,
     and 5 recent transactions in a single, high-performance combined call.

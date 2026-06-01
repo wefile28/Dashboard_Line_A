@@ -113,11 +113,12 @@ def format_income_message(title: str, amount: float, tx_date: str) -> str:
     Format a Thai income notification message with premium 🟢 design.
     """
     return (
-        f"\n🟢 [รายรับเข้าใหม่] U-Dash Alert"
+        f"\n💰 [BrewLab Alert] ขายได้อีกชิ้นแล้วเถ้าแก่!"
         f"\n━━━━━━━━━━━━━━━━━━"
         f"\n📝 รายการ: {title}"
         f"\n💰 ยอดเงิน: +{amount:,.2f} บาท"
         f"\n📅 วันที่: {tx_date}"
+        f"\n✨ สดชื่นเลยเเถ้าแก่! ยอดปังๆ เฮงๆ ครับ"
         f"\n━━━━━━━━━━━━━━━━━━"
     )
 
@@ -127,11 +128,12 @@ def format_expense_message(title: str, amount: float, tx_date: str) -> str:
     Format a Thai expense notification message with premium 🔴 design.
     """
     return (
-        f"\n🔴 [รายจ่ายออกใหม่] U-Dash Alert"
+        f"\n💸 [BrewLab Alert] มีรายจ่ายเบิกออกจากเก๊ะ!"
         f"\n━━━━━━━━━━━━━━━━━━"
         f"\n📝 รายการ: {title}"
         f"\n💸 ยอดเงิน: -{amount:,.2f} บาท"
         f"\n📅 วันที่: {tx_date}"
+        f"\n⚠️ จ่ายออกแล้ว อย่าลืมให้ลูกน้องเก็บใบเสร็จนะเถ้าแก่"
         f"\n━━━━━━━━━━━━━━━━━━"
     )
 

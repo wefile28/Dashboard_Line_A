@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useApp } from '@/contexts/AppContext';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import {
   getSettings, updateSettings, testLineNotify, resetData,
@@ -19,11 +20,21 @@ import { mockSettings } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
-  const { settings, setSettings, setShopName, categories, setCategories, refreshCategories, refreshSettings } = useApp();
+  const { settings, setSettings, setShopName, categories, setCategories, refreshCategories, refreshSettings, userRole } = useApp();
+  const router = useRouter();
   const { addToast } = useToast();
+
+  useEffect(() => {
+    if (userRole === 'employee') {
+      router.push('/transactions');
+    }
+  }, [userRole, router]);
 
   // Shop settings
   const [shopNameInput, setShopNameInput] = useState(settings.shop_name);
+  const [promptpayIdInput, setPromptpayIdInput] = useState(settings.promptpay_id || '');
+  const [promptpayNameInput, setPromptpayNameInput] = useState(settings.promptpay_name || '');
+  const [shortageItemsInput, setShortageItemsInput] = useState(settings.shortage_items || '');
   const [savingShop, setSavingShop] = useState(false);
 
   // LINE settings
@@ -48,6 +59,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setShopNameInput(settings.shop_name);
+    setPromptpayIdInput(settings.promptpay_id || '');
+    setPromptpayNameInput(settings.promptpay_name || '');
+    setShortageItemsInput(settings.shortage_items || '');
     setLineConnected(settings.line_connected);
   }, [settings]);
 
@@ -146,17 +160,45 @@ export default function SettingsPage() {
       addToast('error', 'กรุณาระบุชื่อร้านค้า');
       return;
     }
+    
+    // Front-end Validation for promptpay_id (Must be 10 or 13 digits)
+    if (promptpayIdInput.trim()) {
+      const cleanPP = promptpayIdInput.trim();
+      if (!/^\d+$/.test(cleanPP) || (cleanPP.length !== 10 && cleanPP.length !== 13)) {
+        addToast('error', 'หมายเลขพร้อมเพย์ต้องเป็นตัวเลขล้วน ความยาว 10 หลัก (เบอร์มือถือ) หรือ 13 หลัก (เลขประจำตัวประชาชน) เท่านั้น');
+        return;
+      }
+    }
+
     setSavingShop(true);
     try {
-      const updated = await updateSettings({ shop_name: shopNameInput.trim() });
-      setSettings(updated);
-      setShopName(updated.shop_name);
-      addToast('success', 'บันทึกข้อมูลร้านค้าสำเร็จ');
+      const payload = {
+        shop_name: shopNameInput.trim(),
+        promptpay_id: promptpayIdInput.trim(),
+        promptpay_name: promptpayNameInput.trim(),
+        shortage_items: shortageItemsInput.trim()
+      };
+      const updated = await updateSettings(payload);
+      setSettings(updated as any);
+      setShopName(updated.shop_name || shopNameInput);
+      addToast('success', 'บันทึกข้อมูลตั้งค่าร้านค้าสำเร็จ');
       refreshSettings();
-    } catch (err) {
-      console.warn('API error saving shop name, simulating locally.', err);
+    } catch (err: any) {
+      console.warn('API error saving shop settings, simulating locally.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'บันทึกข้อมูลร้านค้าล้มเหลว');
+        return;
+      }
       // Sandbox fallback
-      setSettings({ ...settings, shop_name: shopNameInput });
+      const updated = {
+        ...settings,
+        shop_name: shopNameInput,
+        promptpay_id: promptpayIdInput,
+        promptpay_name: promptpayNameInput,
+        shortage_items: shortageItemsInput
+      };
+      setSettings(updated);
       setShopName(shopNameInput);
       addToast('success', 'บันทึกข้อมูลร้านค้าสำเร็จ (Sandbox)');
     } finally {
@@ -174,8 +216,13 @@ export default function SettingsPage() {
       } else {
         addToast('error', res.message || 'ส่งทดสอบไม่สำเร็จ');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('API test send error, simulating sandbox response.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ส่งทดสอบไม่สำเร็จ');
+        return;
+      }
       await new Promise(r => setTimeout(r, 600));
       addToast('success', 'ส่งข้อความทดสอบสำเร็จ! (Sandbox)');
     } finally {
@@ -201,7 +248,12 @@ export default function SettingsPage() {
       setCategories(categories.map(c => c.id === cat.id ? updated : c));
       setEditingCat(null);
       addToast('success', 'แก้ไขหมวดหมู่สำเร็จ');
-    } catch (err) {
+    } catch (err: any) {
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'แก้ไขหมวดหมู่ล้มเหลว');
+        return;
+      }
       // Sandbox fallback
       setCategories(categories.map(c => c.id === cat.id ? { ...c, name: editCatName } : c));
       setEditingCat(null);
@@ -223,7 +275,12 @@ export default function SettingsPage() {
       await deleteCategory(id);
       setCategories(categories.filter(c => c.id !== id));
       addToast('success', 'ลบหมวดหมู่สำเร็จ');
-    } catch (err) {
+    } catch (err: any) {
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ลบหมวดหมู่ล้มเหลว');
+        return;
+      }
       setCategories(categories.filter(c => c.id !== id));
       addToast('success', 'ลบหมวดหมู่สำเร็จ (Sandbox)');
     }
@@ -243,7 +300,12 @@ export default function SettingsPage() {
       setCategories([...categories, newCat]);
       setNewCatName('');
       addToast('success', 'เพิ่มหมวดหมู่สำเร็จ');
-    } catch (err) {
+    } catch (err: any) {
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'เพิ่มหมวดหมู่ล้มเหลว');
+        return;
+      }
       const newId = Math.max(...categories.map(c => c.id), 0) + 1;
       setCategories([...categories, {
         id: newId,
@@ -265,8 +327,13 @@ export default function SettingsPage() {
       setResetModal(false);
       refreshSettings();
       refreshCategories();
-    } catch (err) {
+    } catch (err: any) {
       console.warn('API error resetting, simulating locally.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'รีเซ็ตข้อมูลระบบล้มเหลว');
+        return;
+      }
       await new Promise(r => setTimeout(r, 600));
       addToast('success', 'รีเซ็ตข้อมูลระบบสำเร็จ (Sandbox)');
       setResetModal(false);
@@ -282,50 +349,98 @@ export default function SettingsPage() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden"
+        className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden transition-colors"
       >
-        <div className="flex items-center gap-2.5 px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <div className="w-8 h-8 bg-blue-50 text-primary rounded-xl flex items-center justify-center">
+        <div className="flex items-center gap-2.5 px-6 py-5 border-b border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="w-8 h-8 bg-blue-50 dark:bg-blue-500/10 text-primary dark:text-[#2979FF] rounded-xl flex items-center justify-center">
             <Store size={18} />
           </div>
-          <h3 className="text-sm md:text-base font-bold text-slate-800 font-prompt">ข้อมูลร้านค้าทั่วไป</h3>
+          <h3 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 font-prompt">ข้อมูลร้านค้าทั่วไป & ระบบแจ้งชำระเงิน</h3>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 block font-prompt">ชื่อร้านค้า (หรือชื่อเจ้าของ)</label>
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block font-prompt">ชื่อร้านค้า (หรือชื่อเจ้าของ)</label>
               <input
                 type="text"
                 value={shopNameInput}
                 onChange={e => setShopNameInput(e.target.value)}
                 placeholder="ระบุชื่อร้านค้าของคุณ"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm font-prompt"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm font-prompt text-slate-800 dark:text-slate-100"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-500 block font-prompt">รูปภาพโลโก้</label>
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block font-prompt">รูปภาพโลโก้</label>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400">
+                <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center text-slate-400 dark:text-slate-500">
                   <ImageIcon size={18} />
                 </div>
                 <input
                   type="file"
                   accept="image/*"
                   disabled
-                  className="file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-600 hover:file:bg-slate-200/80 file:cursor-not-allowed text-xs text-slate-400"
+                  className="file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-600 dark:file:text-slate-450 hover:file:bg-slate-200/80 file:cursor-not-allowed text-xs text-slate-450"
                 />
               </div>
-              <span className="text-[10px] text-slate-400 font-prompt block mt-1">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-prompt block mt-1">
                 ⚠️ ฟังก์ชันอัปโหลดภาพโลโก้จะรองรับใน v2.0 (JPG, PNG ขนาดไม่เกิน 2MB)
               </span>
             </div>
           </div>
 
-          <div className="flex justify-end pt-3 border-t border-slate-100">
+          <div className="border-t border-slate-150 dark:border-slate-800 pt-5 space-y-4">
+            <h4 className="text-xs font-bold text-[#0D47A1] dark:text-[#2979FF] font-prompt uppercase tracking-wider flex items-center gap-1.5">
+              💸 การตั้งค่ารับโอนพร้อมเพย์ (Payments settings)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block font-prompt">หมายเลขพร้อมเพย์ (PromptPay ID)</label>
+                <input
+                  type="text"
+                  value={promptpayIdInput}
+                  onChange={e => setPromptpayIdInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก"
+                  maxLength={13}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm font-prompt text-slate-800 dark:text-slate-100 font-mono tracking-wide"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block font-prompt">ชื่อบัญชีผู้รับโอน (Account Name)</label>
+                <input
+                  type="text"
+                  value={promptpayNameInput}
+                  onChange={e => setPromptpayNameInput(e.target.value)}
+                  placeholder="ชื่อ-นามสกุลจริงผู้รับโอน (เช่น นายประสิทธิ์ รักดี)"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm font-prompt text-slate-800 dark:text-slate-100"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-150 dark:border-slate-800 pt-5 space-y-4">
+            <h4 className="text-xs font-bold text-rose-600 dark:text-rose-400 font-prompt uppercase tracking-wider">
+              ⚠️ ตั้งค่ารายการวัตถุดิบเช็กลิสต์ของหมด (Inventory Checklists Preset)
+            </h4>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block font-prompt">วัตถุดิบหมดบ่อย (ป้อนข้อมูลและคั่นด้วยเครื่องหมายจุลภาค ,)</label>
+              <input
+                type="text"
+                value={shortageItemsInput}
+                onChange={e => setShortageItemsInput(e.target.value)}
+                placeholder="เช่น เมล็ดกาแฟ, นมสด Barista, แก้วเย็น 16oz, โกโก้พรีเมียม, หลอดกระดาษ"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-xl focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none text-sm font-prompt text-slate-800 dark:text-slate-100"
+              />
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-prompt block mt-1">
+                💡 วัตถุดิบข้างต้นจะปรากฏเป็นปุ่มให้แตะเลือกได้ทันทีเมื่อเปิดปุ่มเตือนของหมดหน้าร้านค้า ป้องกันการสะกดผิดบนมือถือ
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-slate-150 dark:border-slate-800">
             <Button variant="primary" loading={savingShop} onClick={handleSaveShop}>
-              บันทึกข้อมูล
+              บันทึกการตั้งค่าทั้งหมด
             </Button>
           </div>
         </div>

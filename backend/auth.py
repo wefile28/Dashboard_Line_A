@@ -2,9 +2,9 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
 from sqlmodel import Session, select
 from dotenv import load_dotenv
 
@@ -12,9 +12,6 @@ from database import get_session
 from models import User
 
 load_dotenv()
-
-# Passlib CryptContext configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "UDASH_SUPER_SECRET_KEY_2026_MASTER")
@@ -27,12 +24,24 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fals
 
 def hash_password(password: str) -> str:
     """Hash a raw password using bcrypt."""
-    return pwd_context.hash(password)
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
+
+
+# Alias for backward compatibility
+get_password_hash = hash_password
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a raw password against its bcrypt hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        plain_bytes = plain_password.encode('utf-8')
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

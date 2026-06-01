@@ -56,7 +56,13 @@ export default function LoginPage() {
     } catch (err: any) {
       console.warn('API login failed, using fallback or showing error.', err);
       
-      // If server is not running or other error, let's check credentials locally for smooth local testing
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        return;
+      }
+      
+      // If server is not running (err.status === 0 or undefined), let's check credentials locally for smooth local testing
       if (email === 'admin@udash.com' && password === 'udash2026') {
         const fakeToken = 'mock-jwt-token-' + btoa(JSON.stringify({ email, role: 'admin' }));
         document.cookie = `token=${fakeToken}; path=/; max-age=86400; SameSite=Lax`;
@@ -133,9 +139,33 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Hint */}
-            <div className="text-xs text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed font-prompt">
-              💡 <span className="font-semibold text-slate-600">บัญชีทดสอบ:</span> admin@udash.com / udash2026
+            {/* Quick Login Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-500 block font-prompt">💡 เลือกบัญชีทดสอบด่วน:</label>
+              <div className="grid grid-cols-2 gap-2 text-xs font-prompt">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@udash.com');
+                    setPassword('udash2026');
+                  }}
+                  className="py-2 px-3 bg-slate-50 hover:bg-primary/5 text-slate-700 hover:text-primary border border-slate-200 rounded-lg cursor-pointer transition-all flex flex-col items-center justify-center text-center font-medium"
+                >
+                  <span>👑 เจ้าของร้าน (Owner)</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">เห็นแดชบอร์ด/กำไร</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('staff@udash.com');
+                    setPassword('brewlab2026');
+                  }}
+                  className="py-2 px-3 bg-slate-50 hover:bg-primary/5 text-slate-700 hover:text-primary border border-slate-200 rounded-lg cursor-pointer transition-all flex flex-col items-center justify-center text-center font-medium"
+                >
+                  <span>👥 พนักงาน (Staff)</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">คีย์ยอดหน้าร้านอย่างเดียว</span>
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}

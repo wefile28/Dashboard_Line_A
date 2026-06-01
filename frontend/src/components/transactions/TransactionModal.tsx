@@ -37,7 +37,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, editTransaction }
         type: editTransaction.type,
         title: editTransaction.title,
         amount: editTransaction.amount,
-        category: editTransaction.category,
+        category: typeof editTransaction.category === 'object' && editTransaction.category
+          ? editTransaction.category.name
+          : editTransaction.category || '',
         date: editTransaction.date,
         note: editTransaction.note || '',
       });
@@ -72,8 +74,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, editTransaction }
       }
       addToast('success', editTransaction ? 'แก้ไขรายการสำเร็จ' : 'เพิ่มรายการสำเร็จ');
       onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       console.warn('API error, simulating transaction success for demo mode.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'เกิดข้อผิดพลาดในการทำรายการ');
+        return;
+      }
       // Fallback behavior for mockup sandbox
       await new Promise(r => setTimeout(r, 600));
       addToast('success', editTransaction ? 'แก้ไขรายการสำเร็จ (Sandbox)' : 'เพิ่มรายการสำเร็จ (Sandbox)');

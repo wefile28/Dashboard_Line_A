@@ -20,8 +20,13 @@ export default function NotificationsPage() {
     try {
       const res = await getNotifications();
       setNotifications(res);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Backend is offline, using mock notifications.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'โหลดแจ้งเตือนล้มเหลว');
+        return;
+      }
       setNotifications(mockNotifications);
     } finally {
       setLoading(false);
@@ -30,6 +35,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleMarkAllRead() {
@@ -39,8 +45,13 @@ export default function NotificationsPage() {
       setUnreadCount(0);
       addToast('success', 'อ่านการแจ้งเตือนทั้งหมดแล้ว');
       refreshUnread();
-    } catch (err) {
+    } catch (err: any) {
       console.warn('API error during mark all read, simulating locally for sandbox.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ทำรายการล้มเหลว');
+        return;
+      }
       // Simulate
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);

@@ -33,7 +33,7 @@ def login(
             detail="บัญชีผู้ใช้นี้ถูกปิดใช้งานชั่วคราว"
         )
         
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email, "role": user.role, "store_id": user.store_id})
     
     return {
         "access_token": access_token,
@@ -41,7 +41,9 @@ def login(
         "user": {
             "id": user.id,
             "email": user.email,
-            "full_name": user.full_name
+            "full_name": user.full_name,
+            "role": user.role,
+            "store_id": user.store_id
         }
     }
 
@@ -55,6 +57,8 @@ def get_me(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "full_name": current_user.full_name,
+        "role": current_user.role,
+        "store_id": current_user.store_id,
         "is_active": current_user.is_active,
         "created_at": current_user.created_at.isoformat()
     }

@@ -9,6 +9,8 @@ import {
 import { Download, TrendingUp, TrendingDown, Calendar, FileDown, Printer, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/contexts/ToastContext';
+import { useApp } from '@/contexts/AppContext';
+import { useRouter } from 'next/navigation';
 import { getReport, exportCSV, ReportSummary } from '@/lib/api';
 import { getMockReport } from '@/lib/mockData';
 import { formatCurrency, formatDate, formatThaiMonth, cn, downloadBlob } from '@/lib/utils';
@@ -42,6 +44,15 @@ function ReportTooltip({ active, payload, label }: any) {
 
 export default function ReportsPage() {
   const { addToast } = useToast();
+  const { userRole } = useApp();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (userRole === 'employee') {
+      router.push('/transactions');
+    }
+  }, [userRole, router]);
+
   const [period, setPeriod] = useState('week');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -60,28 +71,39 @@ export default function ReportsPage() {
         };
         const res = await getReport(params);
         setReport(res);
-      } catch (err) {
+      } catch (err: any) {
         console.warn('Backend is offline, loading mock report summary.', err);
+        const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+        if (disableSandbox || (err.status && err.status !== 0)) {
+          addToast('error', err.message || 'โหลดรายงานล้มเหลว');
+          return;
+        }
         setReport(getMockReport(period));
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [period, startDate, endDate]);
+  }, [period, startDate, endDate, addToast]);
 
   async function handleExport() {
     setExporting(true);
     try {
       const params = {
+        period,
         start_date: startDate ? startDate : undefined,
         end_date: endDate ? endDate : undefined,
       };
       const blob = await exportCSV(params);
       downloadBlob(blob, `รายงานบัญชี_UDash_${period || 'custom'}_${new Date().toISOString().split('T')[0]}.csv`);
       addToast('success', 'ดาวน์โหลด CSV สำเร็จ');
-    } catch (err) {
+    } catch (err: any) {
       console.warn('API error, simulating local CSV export fallback.', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ดาวน์โหลดรายงานล้มเหลว');
+        return;
+      }
       // Simulate
       await new Promise(r => setTimeout(r, 800));
       const csvContent = '\uFEFFวันที่,รายรับ,รายจ่าย,กำไรสุทธิ\n' +

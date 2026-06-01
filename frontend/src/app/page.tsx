@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
@@ -12,13 +13,18 @@ import {
   Wallet, CreditCard, PiggyBank, Receipt,
   Sparkles, Smartphone, BarChart as LucideBarChart, CheckCircle2, AlertCircle, ShieldCheck, ArrowUpRight
 } from 'lucide-react';
-import { getDashboardSummary, DashboardSummary } from '@/lib/api';
+import { getDashboardSummary, DashboardSummary, sendDailySummary, sendShortageAlert } from '@/lib/api';
 import { mockDashboard } from '@/lib/mockData';
 import {
   formatCurrency, formatDate, formatThaiMonth, formatPercent,
   getCategoryColor, cn
 } from '@/lib/utils';
 import { DashboardSkeleton } from '@/components/ui/LoadingSkeleton';
+import { useApp } from '@/contexts/AppContext';
+import { useToast } from '@/contexts/ToastContext';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { AnimatedCounter } from '@/components/ui/AnimatedCounter';
 
 // ── Custom Chart Tooltip ──
 function CustomTooltip({ active, payload, label }: any) {
@@ -60,11 +66,85 @@ const cardVariants = {
 };
 
 export default function DashboardPage() {
+  const { settings, userRole } = useApp();
+  const router = useRouter();
+  const { addToast } = useToast();
+  
+  useEffect(() => {
+    if (userRole === 'employee') {
+      router.push('/transactions');
+    }
+  }, [userRole, router]);
+
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<string>('default');
   const [initialMounted, setInitialMounted] = useState(false);
   const [executiveMode, setExecutiveMode] = useState<boolean>(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [sendingSummary, setSendingSummary] = useState(false);
+
+  // Stock Shortage states
+  const [showShortageModal, setShowShortageModal] = useState(false);
+  const [sendingShortage, setSendingShortage] = useState(false);
+  const [shortageCooldown, setShortageCooldown] = useState(0);
+  const [selectedShortageItems, setSelectedShortageItems] = useState<string[]>([]);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    let timer: any;
+    if (shortageCooldown > 0) {
+      timer = setTimeout(() => {
+        setShortageCooldown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [shortageCooldown]);
+
+  // Split shortage options from settings or fallback to defaults
+  const getShortageOptions = (): string[] => {
+    if (settings.shortage_items && settings.shortage_items.trim()) {
+      return settings.shortage_items.split(',').map(item => item.trim()).filter(Boolean);
+    }
+    return ['เมล็ดกาแฟ (Espresso)', 'นมสด Barista', 'โกโก้พรีเมียม', 'ชาเขียวมัทฉะ', 'แก้วเย็น 16oz', 'หลอดกระดาษ'];
+  };
+
+  async function handleSendShortage() {
+    if (selectedShortageItems.length === 0) {
+      addToast('error', 'กรุณาเลือกวัตถุดิบอย่างน้อย 1 รายการ');
+      return;
+    }
+    if (shortageCooldown > 0) {
+      addToast('error', `กรุณารอคูลดาวน์ระบบแจ้งเตือนอีก ${shortageCooldown} วินาที`);
+      return;
+    }
+    setSendingShortage(true);
+    try {
+      const res = await sendShortageAlert(selectedShortageItems);
+      if (res.success) {
+        addToast('success', 'ส่งแจ้งเตือนวัตถุดิบหมดเกลี้ยงเข้า LINE เรียบร้อย!');
+        setShowShortageModal(false);
+        setShortageCooldown(60); // 60s cooldown to throttle notifications
+        setSelectedShortageItems([]);
+      } else {
+        addToast('error', res.message || 'ส่งแจ้งเตือนไม่สำเร็จ');
+      }
+    } catch (err: any) {
+      console.warn('LINE Notify shortage error, running sandbox fallback:', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ส่งแจ้งเตือนไม่สำเร็จ');
+        return;
+      }
+      await new Promise(r => setTimeout(r, 600));
+      addToast('success', 'ส่งแจ้งเตือนวัตถุดิบหมดเกลี้ยงเข้า LINE เรียบร้อย! (Sandbox)');
+      setShowShortageModal(false);
+      setShortageCooldown(60);
+      setSelectedShortageItems([]);
+    } finally {
+      setSendingShortage(false);
+    }
+  }
 
   // Safely read and set cached executive mode on mount to avoid Next.js hydration errors
   useEffect(() => {
@@ -99,8 +179,13 @@ export default function DashboardPage() {
 
         const res = await getDashboardSummary(params);
         setData(res);
-      } catch (err) {
+      } catch (err: any) {
         console.warn('Backend is offline, using mock dashboard data.', err);
+        const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+        if (disableSandbox || (err.status && err.status !== 0)) {
+          addToast('error', err.message || 'โหลดข้อมูลสรุปแดชบอร์ดล้มเหลว');
+          return;
+        }
         setData(mockDashboard);
       } finally {
         setLoading(false);
@@ -108,7 +193,39 @@ export default function DashboardPage() {
       }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeframe, initialMounted]);
+
+  async function handleSendSummary() {
+    setSendingSummary(true);
+    try {
+      const res = await sendDailySummary();
+      if (res.success) {
+        addToast('success', 'ส่งรายงานสรุปยอดรายวันเข้า LINE สำเร็จแล้ว!');
+      } else {
+        addToast('error', res.message || 'ส่งสรุปยอดไม่สำเร็จ');
+      }
+    } catch (err: any) {
+      console.warn('LINE Notify push summary error, running sandbox fallback:', err);
+      const disableSandbox = process.env.NEXT_PUBLIC_DISABLE_SANDBOX === 'true';
+      if (disableSandbox || (err.status && err.status !== 0)) {
+        addToast('error', err.message || 'ส่งสรุปยอดไม่สำเร็จ');
+        return;
+      }
+      await new Promise(r => setTimeout(r, 600));
+      addToast('success', 'ส่งรายงานสรุปยอดรายวันเข้า LINE สำเร็จแล้ว! (Sandbox)');
+    } finally {
+      setSendingSummary(false);
+    }
+  }
+
+  function handleCopyReceipt() {
+    if (!data) return;
+    const dateStr = timeframe === 'default' ? 'วันนี้' : timeframe === '7days' ? 'ช่วง 7 วันนี้' : timeframe === '30days' ? 'ช่วง 30 วันนี้' : 'เดือนนี้';
+    const text = `☕ ใบเสร็จสรุปผลร้าน ${settings.shop_name || 'U-Dash'}\n━━━━━━━━━━━━━━━━━━\n📅 รอบสรุปบัญชี: ${dateStr}\n🟢 รายรับสะสม: +${formatCurrency(data.today_income)} บาท\n🔴 รายจ่ายสะสม: -${formatCurrency(data.today_expense)} บาท\n━━━━━━━━━━━━━━━━━━\n📈 กำไรสุทธิ: ${data.today_profit >= 0 ? '+' : ''}${formatCurrency(data.today_profit)} บาท\n━━━━━━━━━━━━━━━━━━\nขอบคุณที่ใช้บริการสรุปยอดอัจฉริยะ U-Dash Pro!`;
+    navigator.clipboard.writeText(text);
+    addToast('success', 'คัดลอกใบเสร็จดิจิทัลลงคลิปบอร์ดสำเร็จ! วางแชร์ได้ทันที');
+  }
 
   if ((loading && !initialMounted) || !data) {
     return <DashboardSkeleton />;
@@ -221,6 +338,56 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ⚡ QUICK ACTIONS PREMIUM PANEL */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs transition-colors font-prompt">
+        <div className="text-[11px] font-bold text-slate-450 dark:text-slate-500 mb-3 uppercase tracking-wider flex items-center gap-1.5 select-none">
+          <Sparkles className="text-[#1565C0] dark:text-[#2979FF] animate-pulse" size={13} />
+          ปุ่มลัดจัดการด่วนหน้าร้าน (U-Dash Pro Quick Actions)
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Action 1: QR Payment */}
+          <button
+            onClick={() => setShowQrModal(true)}
+            className="flex items-center justify-center gap-2 p-3 bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-[#0D47A1] dark:text-[#2979FF] border border-blue-100/50 dark:border-blue-500/10 rounded-xl font-bold text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none"
+          >
+            💸 แสดง QR พร้อมเพย์
+          </button>
+          
+          {/* Action 2: Copy digital receipt */}
+          <button
+            onClick={handleCopyReceipt}
+            className="flex items-center justify-center gap-2 p-3 bg-slate-55 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/40 dark:border-slate-700/30 rounded-xl font-bold text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none"
+          >
+            📋 คัดลอก E-Receipt
+          </button>
+
+          {/* Action 3: Daily Summary LINE Notify */}
+          <button
+            onClick={handleSendSummary}
+            disabled={sendingSummary}
+            className="flex items-center justify-center gap-2 p-3 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/10 rounded-xl font-bold text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {sendingSummary ? '⏳ กำลังส่งสรุป...' : '🔔 ส่งสรุปเข้า LINE'}
+          </button>
+
+          {/* Action 4: Inventory Alert */}
+          <button
+            onClick={() => {
+              setSelectedShortageItems([]);
+              setShowShortageModal(true);
+            }}
+            className="flex items-center justify-center gap-2 p-3 bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-450 border border-rose-100/50 dark:border-rose-500/10 rounded-xl font-bold text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none"
+          >
+            ⚠️ แจ้งเตือนของหมด!
+            {shortageCooldown > 0 && (
+              <span className="font-mono text-[9px] font-bold bg-rose-100 dark:bg-rose-500/30 px-1.5 py-0.5 rounded text-rose-600 dark:text-rose-400 animate-pulse ml-1">
+                ({shortageCooldown}s)
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* ── Timeframe Pill Selector ── */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl shadow-xs gap-3 transition-colors">
         <div className="flex items-center gap-2 pl-2">
@@ -261,7 +428,7 @@ export default function DashboardPage() {
           /* 📱 PREMIUM SIMPLIFIED EXECUTIVE VIEW */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-prompt">
             {/* Question 1: วันนี้ขายได้เท่าไหร่ */}
-            <div className="bg-white border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 relative overflow-hidden flex flex-col justify-between min-h-[220px]">
+            <div className="bg-white border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 relative overflow-hidden flex flex-col justify-between min-h-[240px]">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-full flex items-center gap-1.5 select-none">
@@ -274,16 +441,32 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-1">
                   <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-inter num tracking-tight">
-                    {formatCurrency(data.today_income)}
+                    <AnimatedCounter value={data.today_income} formatFn={formatCurrency} />
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
                     ยอดขายและรายรับจริงสะสมรวมของร้าน {timeframe === 'default' ? 'ในวันนี้' : timeframe === '7days' ? 'ในช่วง 7 วันนี้' : timeframe === '30days' ? 'ในช่วง 30 วันนี้' : 'ภายในเดือนนี้'}
                   </p>
                 </div>
               </div>
-              <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 mt-4 flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 size={14} className="shrink-0" />
-                <span>บันทึกรายรับลงบัญชี เรียบร้อยครบถ้วน</span>
+              <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 mt-4 flex flex-col gap-2.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 size={14} className="shrink-0" />
+                  <span>บันทึกรายรับลงบัญชี เรียบร้อยครบถ้วน</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    onClick={() => setShowQrModal(true)}
+                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold rounded-xl text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none border border-emerald-100/50 dark:border-emerald-500/10"
+                  >
+                    💸 รับเงิน (QR)
+                  </button>
+                  <button
+                    onClick={handleCopyReceipt}
+                    className="flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-all active:scale-95 duration-200 cursor-pointer select-none border border-slate-200/55 dark:border-slate-700/30"
+                  >
+                    📋 คัดลอก
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -318,7 +501,7 @@ export default function DashboardPage() {
                     "text-3xl font-extrabold font-inter num tracking-tight",
                     data.today_profit >= 0 ? "text-blue-600 dark:text-blue-400" : "text-rose-500 dark:text-rose-400"
                   )}>
-                    {data.today_profit >= 0 ? '+' : ''}{formatCurrency(data.today_profit)}
+                    {data.today_profit >= 0 ? '+' : ''}<AnimatedCounter value={data.today_profit} formatFn={formatCurrency} />
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
                     {data.today_profit >= 0
@@ -384,7 +567,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-2">
                   <div className="text-2xl font-extrabold text-rose-500 dark:text-rose-400 font-inter num tracking-tight">
-                    {formatCurrency(data.today_expense)}
+                    <AnimatedCounter value={data.today_expense} formatFn={formatCurrency} />
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
                     {data.today_expense > 0 ? (
@@ -660,8 +843,15 @@ export default function DashboardPage() {
                           <td className="px-6 py-4 text-slate-800 dark:text-slate-200 font-semibold font-prompt whitespace-nowrap">{tx.title}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full text-xs font-prompt">
-                              <span className="w-2 h-2 rounded-full" style={{ background: getCategoryColor(tx.category) }} />
-                              {tx.category}
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{
+                                  background: typeof tx.category === 'object' && tx.category
+                                    ? ((tx.category as any).color || getCategoryColor((tx.category as any).name))
+                                    : getCategoryColor(tx.category as string)
+                                }}
+                              />
+                              {typeof tx.category === 'object' && tx.category ? (tx.category as any).name : tx.category}
                             </span>
                           </td>
                           <td className={cn(
@@ -685,6 +875,157 @@ export default function DashboardPage() {
           </div>
         )}
       </motion.div>
+
+      {/* ── Dynamic PromptPay QR Code Modal ── */}
+      {showQrModal && (
+        <Modal
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+          title="สแกนรับชำระเงินพร้อมเพย์ (PromptPay QR)"
+          size="sm"
+          footer={
+            <Button variant="ghost" onClick={() => setShowQrModal(false)}>
+              ปิดหน้าต่าง
+            </Button>
+          }
+        >
+          <div className="flex flex-col items-center justify-center p-4 text-center font-prompt">
+            {settings.promptpay_id && settings.promptpay_id.trim() ? (
+              <div className="space-y-5 w-full">
+                {/* Visual Header */}
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">
+                    ยอดเงินโอน: <span className="text-emerald-600 dark:text-emerald-400 font-inter font-extrabold text-xl">{formatCurrency(data.today_income)} บาท</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    ยอดรวมรายรับสะสมของร้านในวันนี้แบบเรียลไทม์
+                  </p>
+                </div>
+
+                {/* QR Code Container */}
+                <div className="relative bg-white p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner flex items-center justify-center mx-auto max-w-[210px] aspect-square transition-transform hover:scale-105 duration-300">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://promptpay.io/${settings.promptpay_id.trim()}/${data.today_income || ''}.png`}
+                    alt="PromptPay QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                {/* Account Details */}
+                <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 p-3.5 rounded-xl text-left space-y-1">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">บัญชีผู้รับเงิน</div>
+                  <div className="text-xs font-bold text-slate-700 dark:text-slate-200 flex justify-between">
+                    <span>ชื่อบัญชี:</span>
+                    <span className="font-semibold">{settings.promptpay_name || 'ไม่ได้ระบุ'}</span>
+                  </div>
+                  <div className="text-xs font-bold text-slate-700 dark:text-slate-200 flex justify-between font-mono">
+                    <span>หมายเลขพร้อมเพย์:</span>
+                    <span className="tracking-wider">{settings.promptpay_id}</span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 leading-relaxed font-normal">
+                  💡 ลูกค้าสามารถเปิดแอปธนาคารใดก็ได้ สแกนรูปภาพ QR Code ด้านบนเพื่อชำระเงินเข้าสู่บัญชีคุณโดยตรง ไม่มีค่าธรรมเนียมธุรกรรม
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 py-6">
+                <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 text-rose-500 dark:text-rose-450 rounded-full flex items-center justify-center mx-auto border border-rose-100 dark:border-rose-900/30 animate-pulse">
+                  <AlertCircle size={26} />
+                </div>
+                <div className="space-y-1 px-2">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">ยังไม่ตั้งค่าบัญชีพร้อมเพย์</h4>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                    คุณต้องกรอกหมายเลขพร้อมเพย์ (PromptPay ID) ในเมนูตั้งค่าระบบก่อน เพื่อให้โปรแกรมสามารถสร้างสัญลักษณ์ QR Code แบบ Dynamic ในการรับเงินได้
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <Link href="/settings" onClick={() => setShowQrModal(false)}>
+                    <Button variant="primary" className="text-xs font-bold">
+                      ตั้งค่าพร้อมเพย์ตอนนี้
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Dynamic Stock Shortage Matrix Modal ── */}
+      {showShortageModal && (
+        <Modal
+          isOpen={showShortageModal}
+          onClose={() => setShowShortageModal(false)}
+          title="แจ้งเตือนวัตถุดิบหมดหน้าร้าน (Shortage Alert)"
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setShowShortageModal(false)}>ยกเลิก</Button>
+              <Button
+                variant="danger"
+                loading={sendingShortage}
+                disabled={selectedShortageItems.length === 0 || shortageCooldown > 0}
+                onClick={handleSendShortage}
+                className="flex items-center gap-1.5 font-bold"
+              >
+                {shortageCooldown > 0 ? `คูลดาวน์ (${shortageCooldown}s)` : '🚨 ยืนยันแจ้งเตือน LINE'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4 py-2 font-prompt">
+            <div className="space-y-1">
+              <span className="text-[10px] text-slate-400 dark:text-slate-550 block font-bold uppercase tracking-wider">ระบบแจ้งเตือนฉุกเฉิน</span>
+              <p className="text-xs text-slate-550 dark:text-slate-400 leading-normal">
+                แตะเลือกวัตถุดิบที่หมดเกลี้ยงหรือใกล้หมดหน้างาน เพื่อส่งข้อความแจ้งเตือนสีแดงด่วน 🔴 ไปยังแชท LINE ของเจ้าของร้านทันที
+              </p>
+            </div>
+
+            {/* Checkbox grid list */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto p-1.5 border border-slate-100 dark:border-slate-800/80 rounded-xl bg-slate-50/50 dark:bg-slate-800/20 shadow-inner">
+              {getShortageOptions().map((item, idx) => {
+                const isSelected = selectedShortageItems.includes(item);
+                return (
+                  <label
+                    key={idx}
+                    className={cn(
+                      'flex items-center gap-2.5 p-3 border rounded-xl cursor-pointer select-none transition-all active:scale-97 duration-200',
+                      isSelected
+                        ? 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-900/30 dark:text-rose-450 font-bold'
+                        : 'bg-white dark:bg-slate-850 border-slate-150 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-350'
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        if (isSelected) {
+                          setSelectedShortageItems(selectedShortageItems.filter(i => i !== item));
+                        } else {
+                          setSelectedShortageItems([...selectedShortageItems, item]);
+                        }
+                      }}
+                      className="accent-rose-500 dark:accent-rose-450 cursor-pointer h-4 w-4 shrink-0 rounded"
+                    />
+                    <span className="text-xs truncate">{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            {shortageCooldown > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200/40 dark:border-amber-900/20 p-3 rounded-xl flex items-start gap-2">
+                <AlertCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 leading-normal font-normal">
+                  ⏳ ระบบกำลังคูลดาวน์ จำกัดการส่งถี่เกินไปเพื่อป้องกันสแปมข้อความ กรุณารออีก {shortageCooldown} วินาทีก่อนส่งแจ้งเตือนวัตถุดิบหมดครั้งถัดไป
+                </span>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </motion.div>
   );
 }

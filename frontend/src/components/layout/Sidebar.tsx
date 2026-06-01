@@ -26,7 +26,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { shopName, unreadCount, sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, logout } = useApp();
+  const { shopName, unreadCount, sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, logout, userRole } = useApp();
 
   const handleLogout = () => {
     // Delete the token cookie
@@ -34,6 +34,12 @@ export function Sidebar() {
     logout();
     window.location.href = '/login';
   };
+
+  const allowedNavItems = userRole === 'employee'
+    ? [
+        { href: '/transactions', label: 'คีย์ยอดและประวัติ', icon: Receipt }
+      ]
+    : navItems;
 
   return (
     <>
@@ -92,7 +98,7 @@ export function Sidebar() {
 
         {/* Navigation Items */}
         <nav className={`flex-1 space-y-1.5 transition-all duration-300 ${sidebarCollapsed ? 'px-4 py-6 md:px-2 md:py-6 md:overflow-visible' : 'px-4 py-6 overflow-y-auto'}`}>
-          {navItems.map((item) => {
+          {allowedNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               pathname === item.href ||

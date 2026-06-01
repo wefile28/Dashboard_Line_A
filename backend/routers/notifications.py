@@ -5,13 +5,25 @@ Secured with JWT-based administrator authorization.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, func
 
 from database import get_session
 from models import Notification, User
 from auth import get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+@router.get("/unread-count")
+def get_unread_count(
+    session: Session = Depends(get_session),
+):
+    """Get the count of unread notifications."""
+    count = session.exec(
+        select(func.count(Notification.id)).where(col(Notification.is_read) == False)
+    ).one() or 0
+    return {"count": count}
+
 
 
 @router.get("")

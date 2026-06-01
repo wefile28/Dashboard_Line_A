@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date as date_type, datetime
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 
@@ -9,6 +9,8 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     hashed_password: str
     full_name: str
+    role: str = Field(default="owner")  # "owner" | "employee"
+    store_id: str = Field(default="brewlab")
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -16,11 +18,15 @@ class UserCreate(SQLModel):
     email: str
     password: str
     full_name: str
+    role: Optional[str] = "owner"
+    store_id: Optional[str] = "brewlab"
 
 class UserRead(SQLModel):
     id: int
     email: str
     full_name: str
+    role: str
+    store_id: str
     is_active: bool
     created_at: datetime
 
@@ -73,7 +79,7 @@ class TransactionBase(SQLModel):
     amount: float
     category_id: int = Field(foreign_key="category.id")
     note: Optional[str] = None
-    date: date = Field(default_factory=date.today, index=True)
+    date: date_type = Field(default_factory=date_type.today, index=True)
 
 
 class Transaction(TransactionBase, table=True):
@@ -98,7 +104,7 @@ class TransactionUpdate(SQLModel):
     amount: Optional[float] = None
     category_id: Optional[int] = None
     note: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[date_type] = None
 
 
 # ─── Notification Model ───────────────────────────────────────────────────────
